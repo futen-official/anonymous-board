@@ -1,0 +1,48 @@
+// prisma/schema.prisma
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Thread {
+  id             String   @id @default(cuid())
+  title          String
+  createdAt      DateTime @default(now())
+
+  // スレの寿命（これを基準に消える）
+  expiresAt      DateTime
+
+  // 最後に「ユーザーが」触った時刻（投稿があったら更新）
+  lastActivityAt DateTime @default(now())
+
+  // 最後に ghost を出した時刻（ghost出したら更新 / ユーザー投稿で NULL に戻す）
+  lastGhostAt    DateTime?
+
+  posts          Post[]
+
+  @@index([expiresAt])
+  @@index([lastActivityAt])
+  @@index([lastGhostAt])
+}
+
+model Post {
+  id        String   @id @default(cuid())
+  threadId  String
+  content   String
+  authorType String  // "user" | "ai"
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+
+  // ghost判定（UIには出さないがロジックで使う）
+  isGhost   Boolean  @default(false)
+
+  thread    Thread   @relation(fields: [threadId], references: [id], onDelete: Cascade)
+
+  @@index([threadId, createdAt])
+  @@index([threadId, isGhost])
+}
