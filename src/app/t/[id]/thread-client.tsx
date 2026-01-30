@@ -1,109 +1,154 @@
 "use client";
 
-import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { PostComposer } from "@/components/PostComposer";
+import { PostList } from "@/components/PostList";
+import type { ApiRes, Post } from "@/lib/mock";
 
-type ApiOk = {
-  ok: true;
-  thread: { id: string; title: string; expiresAt: string };
-  posts: { id: string; content: string; createdAt: string; isGhost: boolean }[];
+type Props = {
+  threadId: string;
 };
 
-type ApiNg = { ok: false; error: string };
-
-function formatRemainingIso(expiresAtIso: string) {
-  const expiresAt = new Date(expiresAtIso);
-  const diff = expiresAt.getTime() - Date.now();
-  if (diff <= 0) return "まもなく消える";
-
-  const hr = Math.floor(diff / (1000 * 60 * 60));
-  const min = Math.floor((diff / (1000 * 60)) % 60);
-  if (hr > 0) return `あと ${hr}時間`;
-  return `あと ${min}分`;
+function toISO(v: unknown): string {
+  if (!v) return new Date().toISOString();
+  if (typeof v === "string") return v;
+  try {
+    return new Date(v as any).toISOString();
+  } catch {
+    return new Date().toISOString();
+  }
 }
 
-export default function ThreadClient({ threadId }: { threadId: string }) {
+function normalizePosts(raw: any[]): Post[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((p) => ({
+    id: String(p.id),
+    threadId: p.threadId ? String(p.threadId) : undefined, // 無くてもOK
+    content: String(p.content ?? ""),
+    authorType: p.authorType === "ai" ? "ai" : "user",
+    createdAt: toISO(p.createdAt),
+    expiresAt: p.expiresAt ? String(p.expiresAt) : null,
+    isGhost: Boolean(p.isGhost),
+  }));
+}
+
+export default function ThreadClient({ threadId }: Props) {
   const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [expiresAt, setExpiresAt] = useState<string>("");
-  const [posts, setPosts] = useState<ApiOk["posts"]>([]);
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [err, setErr] = useState<string>("");
 
-  const remaining = useMemo(() => {
+  const expiresText = useMemo(() => {
     if (!expiresAt) return "";
-    return formatRemainingIso(expiresAt);
+    const diff = new Date(expiresAt).getTime() - Date.now();
+    if (Number.isNaN(diff)) return "";
+    if (diff <= 0) return "まもなく消える";
+    const hr = Math.floor(diff / (1000 * 60 * 60));
+    const min = Math.floor((diff / (1000 * 60)) % 60);
+    if (hr > 0) return `消える予定: あと ${hr}時間`;
+    return `消える予定: あと ${min}分`;
   }, [expiresAt]);
 
-  const load = useCallback(async () => {
+  async function load() {
+    setErr("");
     try {
-      setLoading(true);
-      setErr(null);
-
       const res = await fetch(`/api/threads/${threadId}`, { cache: "no-store" });
-      const data = (await res.json()) as ApiOk | ApiNg;
+      const data = (await res.json()) as ApiRes | any;
 
-      if (!data.ok) throw new Error(data.error);
+      if (!data || data.ok !== true) {
+        const msg =
+          (data && typeof data === "object" && "error" in data && (data as any).error) ||
+          (data && typeof data === "object" && "message" in data && (data as any).message) ||
+          "読み込みに失敗しました";
+        throw new Error(String(msg));
+      }
 
-      setTitle(data.thread.title);
-      setExpiresAt(data.thread.expiresAt);
-      setPosts(data.posts);
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : "読み込み失敗");
+      setTitle(String(data.thread.title ?? ""));
+      setExpiresAt(String(data.thread.expiresAt ?? ""));
+      setPosts(normalizePosts(data.posts));
+    } catch (e: any) {
+      setErr(e?.message ?? "読み込みに失敗しました");
     } finally {
       setLoading(false);
     }
-  }, [threadId]);
+  }
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    load();
+    // 3秒おきに更新（軽め）
+    const id = setInterval(load, 3000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [threadId]);
+
+  // 送信後にすぐ下まで更新されるようにする
+  async function onPosted() {
+    await load();
+    requestAnimationFrame(() => window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" }));
+  }
 
   return (
-    <>
-      {/* 上：スレヘッダー（新規スレページと同じ白枠幅＝Container統一） */}
-      <section className="card">
-        <div className="threadHeader">
-          <div>
-            <h1 className="threadTitle">{title || "…"}</h1>
-            <div className="kv">
-              <span>消える予定: {remaining || "…"}</span>
+    <div style={{ display: "grid", gap: 14 }}>
+      {/* ===== タイトル枠（新規スレと同じ白枠） ===== */}
+      <header
+        style={{
+          border: "3px solid #fff",
+          borderRadius: 22,
+          padding: 20,
+          background: "#000",
+        }}
+      >
+        <div style={{ display: "grid", gap: 6 }}>
+          <div
+            style={{
+              margin: 0,
+              fontSize: 22,
+              fontWeight: 800,
+              letterSpacing: -0.2,
+              color: "#fff",
+            }}
+          >
+            {loading ? "読み込み中…" : title || "スレッド"}
+          </div>
+
+          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.7)" }}>
+            {expiresText}
+          </div>
+
+          {err ? (
+            <div style={{ marginTop: 8, fontSize: 12, color: "rgba(255,255,255,0.85)" }}>
+              読み込み失敗: {err}
             </div>
-          </div>
-
-          <Link href="/" className="badge">
-            戻る
-          </Link>
+          ) : null}
         </div>
+      </header>
 
-        {loading && <div className="notice">読み込み中…</div>}
-        {err && <div className="notice">読み込み失敗: {err}</div>}
+      {/* ===== 投稿一覧 ===== */}
+      <section
+        style={{
+          border: "3px solid #fff",
+          borderRadius: 22,
+          padding: 20,
+          background: "#000",
+          display: "grid",
+          gap: 14,
+        }}
+      >
+        <PostList posts={posts} />
       </section>
 
-      <div style={{ height: 18 }} />
-
-      {/* 中：投稿一覧 */}
-      <section className="card">
-        {posts.length === 0 ? (
-          <div className="empty">まだ投稿がない。</div>
-        ) : (
-          <div className="postList">
-            {posts.map((p) => (
-              <div key={p.id} className="postItem">
-                <div className="postText">{p.content}</div>
-                <div className="postTime">{new Date(p.createdAt).toLocaleString()}</div>
-              </div>
-            ))}
-          </div>
-        )}
+      {/* ===== 書き込み欄（最下部） ===== */}
+      <section
+        style={{
+          border: "3px solid #fff",
+          borderRadius: 22,
+          padding: 20,
+          background: "#000",
+        }}
+      >
+        <PostComposer threadId={threadId} onPosted={onPosted} />
       </section>
-
-      <div style={{ height: 18 }} />
-
-      {/* 下：入力フォーム（★最下部） */}
-      <section className="card">
-        <PostComposer threadId={threadId} onPosted={load} />
-      </section>
-    </>
+    </div>
   );
 }
