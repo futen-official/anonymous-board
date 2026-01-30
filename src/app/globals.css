@@ -1,237 +1,38 @@
 :root{
-  /* ===== Background (Black) ===== */
   --bg-root: #000000;
-  --bg-surface: #000000;
-
-  /* ===== Border / Line (White) ===== */
-  --line: rgba(255,255,255,1);
-  --line-soft: rgba(255,255,255,0.55);
-  --line-dash: rgba(255,255,255,0.4);
-
-  /* ===== Text (White) ===== */
   --text-main: #ffffff;
-  --text-sub: rgba(255,255,255,0.75);
   --text-muted: rgba(255,255,255,0.6);
-
-  /* ===== Radius ===== */
-  --r-lg: 22px;
-  --r-md: 16px;
-
-  /* ===== Spacing ===== */
-  --gap: 14px;
-  --pad: 20px;
 }
 
-*{ box-sizing:border-box; }
-html, body { height: 100%; }
+html, body{
+  padding: 0;
+  margin: 0;
+}
 
 body{
-  margin: 0;
   background: var(--bg-root);
   color: var(--text-main);
   font-family: "M PLUS Rounded 1c","Nunito",system-ui,-apple-system;
 }
 
-a{ color:inherit; text-decoration:none; }
-
-/* ===== Layout ===== */
-.page{
-  padding: 22px 0 40px;
-}
+a{ color: inherit; text-decoration: none; }
 
 .container{
-  max-width: 720px;   /* ★ 新規スレページとスレ詳細ページを同じ幅にする核 */
+  width: min(720px, calc(100% - 32px));
   margin: 0 auto;
-  padding: 0 16px;
+  padding: 24px 0 48px;
 }
 
-/* ===== White Border Card (共通) ===== */
+/* 共通の白枠カード */
 .card{
-  background: var(--bg-surface);
-  border: 3px solid var(--line);
-  border-radius: var(--r-lg);
-  padding: var(--pad);
+  background: #000;
+  border: 3px solid #fff;
+  border-radius: 22px;
+  padding: 20px;
 }
 
-/* タイトル行 */
-.h1{
-  margin: 0;
-  font-size: 30px;
-  font-weight: 800;
-  letter-spacing: -0.4px;
-  color: var(--text-main);
-}
-
-.sub{
-  margin-top: 6px;
-  font-size: 14px;
-  color: var(--text-sub);
-}
-
-.sectionTitle{
-  font-size: 18px;
-  font-weight: 800;
-  margin-bottom: 14px;
-}
-
-/* ===== Lists ===== */
+/* 余白調整 */
 .stack{
   display: grid;
-  gap: var(--gap);
-}
-
-.row{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap: 12px;
-}
-
-.meta{
-  font-size: 12px;
-  color: var(--text-sub);
-  display:flex;
-  gap: 10px;
-  opacity: 0.9;
-}
-
-.dot{ opacity: 0.4; }
-
-/* ===== Badge ===== */
-.badge{
-  font-size: 12px;
-  padding: 6px 10px;
-  border-radius: 999px;
-  border: 2px solid var(--line);
-  color: var(--text-main);
-  opacity: 0.9;
-  white-space: nowrap;
-}
-
-/* ===== Empty ===== */
-.empty{
-  border: 2px dashed var(--line-dash);
-  border-radius: 18px;
-  padding: 20px;
-  color: var(--text-main);
-  opacity: 0.7;
-}
-
-/* ===== Thread Link Card ===== */
-.threadLink{
-  display:block;
-  transition: transform 120ms ease, box-shadow 120ms ease;
-}
-.threadLink:hover{
-  box-shadow: 0 12px 32px rgba(255,255,255,0.25);
-  transform: translateY(-2px);
-}
-.threadLink:active{
-  transform: translateY(0);
-  box-shadow: 0 6px 16px rgba(255,255,255,0.2);
-}
-
-/* ===== Form ===== */
-.form{
-  display:grid;
-  gap: 12px;
-}
-
-.input, .textarea{
-  width: 100%;
-  background: #000;
-  color: #fff;
-  border: 2px solid var(--line-soft);
-  border-radius: 14px;
-  padding: 12px 12px;
-  outline: none;
-  font-size: 14px;
-}
-
-.textarea{
-  min-height: 92px;
-  resize: vertical;
-  line-height: 1.6;
-}
-
-.input:focus, .textarea:focus{
-  border-color: var(--line);
-}
-
-.help{
-  margin-top: 10px;
-  font-size: 12px;
-  line-height: 1.6;
-  color: var(--text-muted);
-}
-
-/* Buttons */
-.btn{
-  background: #fff;
-  color: #000;
-  border: 0;
-  border-radius: 14px;
-  padding: 12px 14px;
-  font-weight: 900;
-  font-size: 14px;
-  cursor: pointer;
-  transition: transform 100ms ease, opacity 120ms ease;
-}
-.btn:hover{ opacity: 0.92; }
-.btn:active{ transform: scale(0.99); }
-.btn:disabled{ opacity: 0.5; cursor: not-allowed; }
-
-/* ===== Posts ===== */
-.postList{
-  display:grid;
-  gap: var(--gap);
-}
-
-.postItem{
-  border: 2px solid var(--line-soft);
-  border-radius: var(--r-md);
-  padding: 14px;
-  color: #fff;
-}
-
-.postText{
-  white-space: pre-wrap;
-  line-height: 1.7;
-  font-size: 14px;
-}
-
-.postTime{
-  margin-top: 10px;
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-/* ===== Thread header ===== */
-.threadHeader{
-  display:flex;
-  justify-content:space-between;
-  align-items:flex-start;
-  gap: 12px;
-}
-
-.threadTitle{
-  font-size: 20px;
-  font-weight: 900;
-  letter-spacing: -0.2px;
-  margin: 0;
-}
-
-.kv{
-  font-size: 12px;
-  color: var(--text-sub);
-  display:flex;
-  gap: 10px;
-  margin-top: 8px;
-}
-
-/* ===== Toast-like info ===== */
-.notice{
-  margin-top: 10px;
-  font-size: 12px;
-  color: var(--text-muted);
+  gap: 14px;
 }

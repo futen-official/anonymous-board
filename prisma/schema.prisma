@@ -1,48 +1,44 @@
-// prisma/schema.prisma
-
-datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
-}
-
 generator client {
   provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL") // 実行時（Vercel/開発）用：Neonの pooled を入れる
+  directUrl = env("DIRECT_URL")   // migrate 用：Neonの direct を入れる
+}
+
+enum AuthorType {
+  user
+  ai
 }
 
 model Thread {
   id             String   @id @default(cuid())
   title          String
   createdAt      DateTime @default(now())
-
-  // スレの寿命（これを基準に消える）
   expiresAt      DateTime
-
-  // 最後に「ユーザーが」触った時刻（投稿があったら更新）
   lastActivityAt DateTime @default(now())
-
-  // 最後に ghost を出した時刻（ghost出したら更新 / ユーザー投稿で NULL に戻す）
   lastGhostAt    DateTime?
 
   posts          Post[]
 
   @@index([expiresAt])
   @@index([lastActivityAt])
-  @@index([lastGhostAt])
 }
 
 model Post {
-  id        String   @id @default(cuid())
-  threadId  String
+  id        String     @id @default(cuid())
   content   String
-  authorType String  // "user" | "ai"
-  createdAt DateTime @default(now())
+  authorType AuthorType @default(user)
+  createdAt DateTime   @default(now())
   expiresAt DateTime
+  isGhost   Boolean    @default(false)
 
-  // ghost判定（UIには出さないがロジックで使う）
-  isGhost   Boolean  @default(false)
-
-  thread    Thread   @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  thread    Thread     @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  threadId  String
 
   @@index([threadId, createdAt])
-  @@index([threadId, isGhost])
+  @@index([expiresAt])
+  @@index([isGhost])
 }
