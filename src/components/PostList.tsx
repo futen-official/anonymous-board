@@ -1,8 +1,14 @@
 // src/components/PostList.tsx
-import { PostItem } from "@/components/PostItem";
-import type { Post } from "@/lib/mock";
+"use client";
 
-export function PostList({ posts }: { posts: Post[] }) {
+import React from "react";
+import { PostItem, type Post } from "@/components/PostItem";
+
+type Props = {
+  posts: Post[];
+};
+
+export function PostList({ posts }: Props) {
   if (!posts || posts.length === 0) {
     return (
       <div
@@ -12,6 +18,7 @@ export function PostList({ posts }: { posts: Post[] }) {
           padding: 20,
           color: "#fff",
           opacity: 0.7,
+          background: "#000",
         }}
       >
         まだ投稿がない。

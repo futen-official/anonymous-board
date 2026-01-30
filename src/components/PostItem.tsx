@@ -1,42 +1,56 @@
+// src/components/PostItem.tsx
+"use client";
+
 import React from "react";
 
-type Props = {
+export type AuthorType = "user" | "ai";
+
+export type Post = {
+  id: string;
   content: string;
-  createdAt?: string | Date;
-  // authorType / isGhost は受け取っても UI に出さない
-  authorType?: "user" | "ai" | string;
+  authorType: AuthorType;
+  createdAt: string | Date;
   isGhost?: boolean;
 };
 
-export function PostItem({ content, createdAt }: Props) {
-  const ts =
-    createdAt ? new Date(createdAt).toLocaleString() : "";
+type Props = {
+  post: Post;
+};
 
+function formatTime(value: string | Date) {
+  const d = typeof value === "string" ? new Date(value) : value;
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleString();
+}
+
+export function PostItem({ post }: Props) {
   return (
     <div
       style={{
-        border: "2px solid rgba(255,255,255,0.6)",
-        borderRadius: 18,
-        padding: 14,
+        border: "3px solid #fff",
+        borderRadius: 22,
+        padding: 16,
         background: "#000",
         color: "#fff",
+        whiteSpace: "pre-wrap",
+        wordBreak: "break-word",
       }}
     >
-      <div style={{ whiteSpace: "pre-wrap", lineHeight: 1.7 }}>
-        {content}
-      </div>
+      <div style={{ fontSize: 14, lineHeight: 1.7 }}>{post.content}</div>
 
-      {ts ? (
-        <div
-          style={{
-            marginTop: 10,
-            fontSize: 12,
-            color: "rgba(255,255,255,0.55)",
-          }}
-        >
-          {ts}
-        </div>
-      ) : null}
+      <div
+        style={{
+          marginTop: 10,
+          fontSize: 12,
+          opacity: 0.65,
+          display: "flex",
+          justifyContent: "space-between",
+          gap: 12,
+        }}
+      >
+        <span>{formatTime(post.createdAt)}</span>
+        {/* authorType / ghost表示は出さない（要望） */}
+      </div>
     </div>
   );
 }
