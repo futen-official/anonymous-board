@@ -1,154 +1,148 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { PostComposer } from "@/components/PostComposer";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PostList } from "@/components/PostList";
-import type { ApiRes, Post } from "@/lib/mock";
+import { PostComposer } from "@/components/PostComposer";
 
-type Props = {
-  threadId: string;
+/** ===== 表示用の型（UIで必要な分だけ） ===== */
+export type AuthorType = "user" | "ai";
+
+export type Post = {
+  id: string;
+  content: string;
+  authorType: AuthorType;
+  createdAt: string; // ISO
+  isGhost: boolean;
 };
 
-function toISO(v: unknown): string {
-  if (!v) return new Date().toISOString();
-  if (typeof v === "string") return v;
-  try {
-    return new Date(v as any).toISOString();
-  } catch {
-    return new Date().toISOString();
-  }
+type ApiOk = {
+  ok: true;
+  thread: {
+    id: string;
+    title: string;
+    expiresAt: string; // ISO
+  };
+  posts: Post[];
+};
+
+type ApiNg = {
+  ok: false;
+  error: string;
+};
+
+type ApiRes = ApiOk | ApiNg;
+
+function formatDate(iso: string) {
+  const d = new Date(iso);
+  return d.toLocaleString();
 }
 
-function normalizePosts(raw: any[]): Post[] {
-  if (!Array.isArray(raw)) return [];
-  return raw.map((p) => ({
-    id: String(p.id),
-    threadId: p.threadId ? String(p.threadId) : undefined, // 無くてもOK
-    content: String(p.content ?? ""),
-    authorType: p.authorType === "ai" ? "ai" : "user",
-    createdAt: toISO(p.createdAt),
-    expiresAt: p.expiresAt ? String(p.expiresAt) : null,
-    isGhost: Boolean(p.isGhost),
-  }));
+function formatRemaining(expiresAtIso: string) {
+  const diff = new Date(expiresAtIso).getTime() - Date.now();
+  if (diff <= 0) return "まもなく消える";
+
+  const hr = Math.floor(diff / (1000 * 60 * 60));
+  const min = Math.floor((diff / (1000 * 60)) % 60);
+  if (hr > 0) return `消える予定: あと ${hr}時間`;
+  return `消える予定: あと ${min}分`;
 }
 
-export default function ThreadClient({ threadId }: Props) {
+function getErrorMessage(e: unknown) {
+  if (e instanceof Error) return e.message;
+  return "unknown error";
+}
+
+export default function ThreadClient({ threadId }: { threadId: string }) {
   const [loading, setLoading] = useState(true);
   const [title, setTitle] = useState("");
   const [expiresAt, setExpiresAt] = useState<string>("");
   const [posts, setPosts] = useState<Post[]>([]);
   const [err, setErr] = useState<string>("");
 
-  const expiresText = useMemo(() => {
-    if (!expiresAt) return "";
-    const diff = new Date(expiresAt).getTime() - Date.now();
-    if (Number.isNaN(diff)) return "";
-    if (diff <= 0) return "まもなく消える";
-    const hr = Math.floor(diff / (1000 * 60 * 60));
-    const min = Math.floor((diff / (1000 * 60)) % 60);
-    if (hr > 0) return `消える予定: あと ${hr}時間`;
-    return `消える予定: あと ${min}分`;
-  }, [expiresAt]);
+  const bottomRef = useRef<HTMLDivElement | null>(null);
 
-  async function load() {
+  const sortedPosts = useMemo(() => {
+    // createdAt昇順（古い→新しい）で表示
+    return [...posts].sort(
+      (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    );
+  }, [posts]);
+
+  const scrollToBottom = useCallback(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, []);
+
+  const fetchThread = useCallback(async () => {
     setErr("");
+    setLoading(true);
     try {
-      const res = await fetch(`/api/threads/${threadId}`, { cache: "no-store" });
-      const data = (await res.json()) as ApiRes | any;
+      const res = await fetch(`/api/threads/${threadId}`, { method: "GET" });
+      const data = (await res.json()) as ApiRes;
 
-      if (!data || data.ok !== true) {
-        const msg =
-          (data && typeof data === "object" && "error" in data && (data as any).error) ||
-          (data && typeof data === "object" && "message" in data && (data as any).message) ||
-          "読み込みに失敗しました";
-        throw new Error(String(msg));
+      // ✅ これでTSも100%理解する
+      if ("error" in data) {
+        throw new Error(data.error);
       }
 
-      setTitle(String(data.thread.title ?? ""));
-      setExpiresAt(String(data.thread.expiresAt ?? ""));
-      setPosts(normalizePosts(data.posts));
-    } catch (e: any) {
-      setErr(e?.message ?? "読み込みに失敗しました");
+      setTitle(data.thread.title);
+      setExpiresAt(data.thread.expiresAt);
+      setPosts(data.posts);
+    } catch (e) {
+      console.error(e);
+      setErr(`読み込み失敗: ${getErrorMessage(e)}`);
     } finally {
       setLoading(false);
     }
-  }
-
-  useEffect(() => {
-    load();
-    // 3秒おきに更新（軽め）
-    const id = setInterval(load, 3000);
-    return () => clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [threadId]);
 
-  // 送信後にすぐ下まで更新されるようにする
-  async function onPosted() {
-    await load();
-    requestAnimationFrame(() => window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" }));
-  }
+  useEffect(() => {
+    fetchThread();
+  }, [fetchThread]);
+
+  useEffect(() => {
+    if (!loading) scrollToBottom();
+  }, [loading, scrollToBottom, posts.length]);
+
+  const handlePosted = useCallback(
+    (post: Post) => {
+      setPosts((prev) => [...prev, post]);
+      setTimeout(scrollToBottom, 0);
+    },
+    [scrollToBottom]
+  );
 
   return (
-    <div style={{ display: "grid", gap: 14 }}>
-      {/* ===== タイトル枠（新規スレと同じ白枠） ===== */}
-      <header
-        style={{
-          border: "3px solid #fff",
-          borderRadius: 22,
-          padding: 20,
-          background: "#000",
-        }}
-      >
-        <div style={{ display: "grid", gap: 6 }}>
-          <div
-            style={{
-              margin: 0,
-              fontSize: 22,
-              fontWeight: 800,
-              letterSpacing: -0.2,
-              color: "#fff",
-            }}
-          >
-            {loading ? "読み込み中…" : title || "スレッド"}
+    <div className="page">
+      <div className="container">
+        {/* ===== タイトル枠（Homeと同じ幅） ===== */}
+        <header className="box">
+          <div className="rowBetween">
+            <h1 className="h1">{title || "…"}</h1>
+            {expiresAt ? <div className="pill">{formatRemaining(expiresAt)}</div> : null}
           </div>
+          <div className="sub">{expiresAt ? `最終期限: ${formatDate(expiresAt)}` : ""}</div>
+        </header>
 
-          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.7)" }}>
-            {expiresText}
-          </div>
+        {/* ===== 本文枠 ===== */}
+        <section className="box" style={{ marginTop: 18 }}>
+          {loading ? (
+            <div className="muted">読み込み中…</div>
+          ) : err ? (
+            <div className="muted">{err}</div>
+          ) : sortedPosts.length === 0 ? (
+            <div className="muted">まだ投稿がない。</div>
+          ) : (
+            <PostList posts={sortedPosts} />
+          )}
 
-          {err ? (
-            <div style={{ marginTop: 8, fontSize: 12, color: "rgba(255,255,255,0.85)" }}>
-              読み込み失敗: {err}
-            </div>
-          ) : null}
+          <div ref={bottomRef} />
+        </section>
+
+        {/* ===== 書き込み欄：一番下 ===== */}
+        <div style={{ marginTop: 18 }}>
+          <PostComposer threadId={threadId} onPosted={handlePosted} />
         </div>
-      </header>
-
-      {/* ===== 投稿一覧 ===== */}
-      <section
-        style={{
-          border: "3px solid #fff",
-          borderRadius: 22,
-          padding: 20,
-          background: "#000",
-          display: "grid",
-          gap: 14,
-        }}
-      >
-        <PostList posts={posts} />
-      </section>
-
-      {/* ===== 書き込み欄（最下部） ===== */}
-      <section
-        style={{
-          border: "3px solid #fff",
-          borderRadius: 22,
-          padding: 20,
-          background: "#000",
-        }}
-      >
-        <PostComposer threadId={threadId} onPosted={onPosted} />
-      </section>
+      </div>
     </div>
   );
 }

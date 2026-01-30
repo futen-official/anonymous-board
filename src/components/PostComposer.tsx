@@ -1,117 +1,112 @@
 "use client";
 
 import { useState } from "react";
+import type { Post } from "@/app/t/[id]/thread-client";
+
+/** ===== API型 ===== */
+type ApiOk = {
+  ok: true;
+  post: Post;
+};
+
+type ApiNg = {
+  ok: false;
+  error: string;
+};
+
+type ApiRes = ApiOk | ApiNg;
 
 type Props = {
   threadId: string;
-  onPosted?: () => void;
+  onPosted: (post: Post) => void;
 };
+
+function getErrorMessage(e: unknown) {
+  if (e instanceof Error) return e.message;
+  return "unknown error";
+}
 
 export function PostComposer({ threadId, onPosted }: Props) {
   const [content, setContent] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
 
   async function submit() {
     const text = content.trim();
-    if (!text || submitting) return;
+    if (!text) return;
 
-    setSubmitting(true);
-    setErr(null);
-
+    setSending(true);
     try {
-      const res = await fetch(`/api/threads/${threadId}`, {
+      const res = await fetch("/api/posts", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ content: text }),
+        body: JSON.stringify({ threadId, content: text }),
       });
 
-      // JSONの型は信用しない（ここが核）
-      const data: unknown = await res.json();
+      const data = (await res.json()) as ApiRes;
 
-      // ★ここで "error を持つか" で分岐する（ApiResがどう定義されてても通る）
-      if (
-        !data ||
-        typeof data !== "object" ||
-        ("ok" in data && (data as any).ok === false) ||
-        "error" in (data as any)
-      ) {
-        const msg =
-          (data as any)?.error ||
-          (data as any)?.message ||
-          "投稿に失敗しました";
-        setErr(String(msg));
-        return;
+      // ✅ TSが100%理解できる判別（これが一番堅い）
+      if ("error" in data) {
+        throw new Error(data.error);
       }
 
-      // ok=true想定
+      onPosted(data.post);
       setContent("");
-      onPosted?.();
-    } catch {
-      setErr("通信エラー：もう一回やってみて");
+    } catch (e) {
+      console.error(e);
+      alert(`投稿に失敗した: ${getErrorMessage(e)}`);
     } finally {
-      setSubmitting(false);
-    }
-  }
-
-  function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      submit();
+      setSending(false);
     }
   }
 
   return (
-    <div style={{ display: "grid", gap: 10 }}>
+    <div
+      style={{
+        border: "3px solid #fff",
+        borderRadius: 22,
+        padding: 16,
+        background: "#000",
+      }}
+    >
       <textarea
         value={content}
         onChange={(e) => setContent(e.target.value)}
-        onKeyDown={onKeyDown}
+        rows={4}
         placeholder="書き込む"
-        rows={3}
         style={{
           width: "100%",
-          resize: "vertical",
-          padding: 14,
-          borderRadius: 16,
-          border: "3px solid #fff",
           background: "#000",
           color: "#fff",
-          outline: "none",
-          lineHeight: 1.6,
-          fontSize: 14,
+          border: "2px solid #fff",
+          borderRadius: 12,
+          padding: 10,
+          resize: "vertical",
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            submit();
+          }
         }}
       />
 
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-        <div
-          style={{
-            minHeight: 18,
-            fontSize: 12,
-            color: "rgba(255,255,255,0.7)",
-          }}
-        >
-          {err ?? ""}
-        </div>
-
-        <button
-          onClick={submit}
-          disabled={submitting || content.trim().length === 0}
-          style={{
-            border: "3px solid #fff",
-            background: submitting ? "rgba(255,255,255,0.12)" : "#000",
-            color: "#fff",
-            borderRadius: 999,
-            padding: "10px 14px",
-            fontWeight: 800,
-            cursor: submitting ? "not-allowed" : "pointer",
-            opacity: submitting ? 0.7 : 1,
-            whiteSpace: "nowrap",
-          }}
-        >
-          {submitting ? "送信中" : "送信"}
-        </button>
-      </div>
+      <button
+        onClick={submit}
+        disabled={sending}
+        style={{
+          marginTop: 10,
+          width: "100%",
+          padding: "10px 0",
+          borderRadius: 999,
+          border: "2px solid #fff",
+          background: "#000",
+          color: "#fff",
+          fontWeight: 800,
+          opacity: sending ? 0.5 : 1,
+        }}
+      >
+        送信
+      </button>
     </div>
   );
 }
