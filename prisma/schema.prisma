@@ -4,8 +4,8 @@ generator client {
 
 datasource db {
   provider  = "postgresql"
-  url       = env("DATABASE_URL") // 実行時（Vercel/開発）用：Neonの pooled を入れる
-  directUrl = env("DIRECT_URL")   // migrate 用：Neonの direct を入れる
+  url       = env("postgresql://neondb_owner:npg_BfxE9FV0Inmb@ep-falling-frog-ahi5w8hm-pooler.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require") // 実行時（Vercel/開発）用：Neonの pooled を入れる
+  directUrl = env("postgresql://neondb_owner:npg_BfxE9FV0Inmb@ep-falling-frog-ahi5w8hm.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require")   // migrate 用：Neonの direct を入れる
 }
 
 enum AuthorType {
