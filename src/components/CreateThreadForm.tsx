@@ -2,75 +2,81 @@
 
 import { useState } from "react";
 
-type ApiOk = { ok: true; threadId: string };
-type ApiNg = { ok: false; error: string };
+type ApiOk = { ok: true; thread: { id: string } };
+type ApiNg = { ok: false; message: string };
 type ApiRes = ApiOk | ApiNg;
-
-// ★ 型ガード（これで確実に絞れる）
-function isNg(data: ApiRes): data is ApiNg {
-  return data.ok === false;
-}
 
 export function CreateThreadForm() {
   const [title, setTitle] = useState("");
-  const [firstPost, setFirstPost] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [content, setContent] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (busy) return;
+
+    setErr(null);
 
     const t = title.trim();
-    const p = firstPost.trim();
-    if (!t || !p) return;
+    const c = content.trim();
+    if (!t) return setErr("タイトルを入れて");
+    if (!c) return setErr("一投稿目を書いて");
 
     try {
-      setLoading(true);
+      setBusy(true);
 
+      // スレ作成（タイトル + 一投稿目）
       const res = await fetch("/api/threads", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ title: t, firstPost: p }),
+        body: JSON.stringify({ title: t, firstPost: c }),
       });
 
       const data = (await res.json()) as ApiRes;
 
-      if (isNg(data)) {
-        // ★ここは確実に ApiNg
-        throw new Error(data.error);
+      if (!data.ok) {
+        throw new Error(data.message);
       }
 
-      // ★ここは確実に ApiOk
-      window.location.href = `/t/${data.threadId}`;
-    } catch (err) {
-      alert(err instanceof Error ? err.message : "作成に失敗");
+      // 作成したスレへ遷移
+      window.location.href = `/t/${data.thread.id}`;
+    } catch (e: any) {
+      setErr(e?.message ?? "エラー");
     } finally {
-      setLoading(false);
+      setBusy(false);
     }
   }
 
   return (
     <form className="form" onSubmit={onSubmit}>
-      <input
-        className="input"
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        placeholder="スレのタイトル"
-        maxLength={60}
-      />
+      <div className="field">
+        <div className="label">タイトル</div>
+        <input
+          className="input"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="例：今日だるい"
+          maxLength={80}
+        />
+      </div>
 
-      <textarea
-        className="textarea"
-        value={firstPost}
-        onChange={(e) => setFirstPost(e.target.value)}
-        placeholder="一投稿目（本文）"
-        maxLength={1000}
-      />
+      <div className="field">
+        <div className="label">一投稿目</div>
+        <textarea
+          className="textarea"
+          value={content}
+          onChange={(e) => setContent(e.target.value)}
+          placeholder="ここに書く"
+          rows={5}
+          maxLength={2000}
+        />
+      </div>
 
-      <button
-        className="btn"
-        disabled={loading || !title.trim() || !firstPost.trim()}
-      >
-        {loading ? "作成中..." : "スレ立て"}
+      {err && <div className="error">{err}</div>}
+
+      <button className="btn" type="submit" disabled={busy}>
+        {busy ? "作成中…" : "スレ立て"}
       </button>
     </form>
   );

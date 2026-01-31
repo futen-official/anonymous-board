@@ -36,3 +36,145 @@ a{ color: inherit; text-decoration: none; }
   display: grid;
   gap: 14px;
 }
+
+/* ===== CreateThreadForm ===== */
+.form{
+  display: grid;
+  gap: 14px;
+}
+
+.field{
+  display: grid;
+  gap: 8px;
+}
+
+.label{
+  font-size: 12px;
+  font-weight: 800;
+  color: rgba(255,255,255,0.85);
+}
+
+.input,
+.textarea{
+  width: 100%;
+  box-sizing: border-box;
+
+  background: #000;
+  color: #fff;
+
+  border: 2px solid rgba(255,255,255,0.8);
+  border-radius: 14px;
+
+  padding: 12px 12px;
+  font-size: 14px;
+  outline: none;
+}
+
+.textarea{
+  resize: vertical;
+  min-height: 110px;
+  line-height: 1.6;
+}
+
+.input:focus,
+.textarea:focus{
+  border-color: #fff;
+}
+
+.btn{
+  width: 100%;
+  background: #000;
+  color: #fff;
+
+  border: 3px solid #fff;
+  border-radius: 16px;
+
+  padding: 12px 14px;
+  font-weight: 900;
+  font-size: 14px;
+
+  cursor: pointer;
+}
+
+.btn:disabled{
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.error{
+  border: 2px solid rgba(255,255,255,0.7);
+  border-radius: 14px;
+  padding: 10px 12px;
+  font-size: 12px;
+  color: rgba(255,255,255,0.85);
+  background: rgba(255,255,255,0.06);
+}
+
+/* ===== 共通：白枠ボックス ===== */
+.whiteBox{
+  border: 3px solid #fff;
+  border-radius: 22px;
+  padding: 18px;
+  background: #000;
+  color: #fff;
+}
+
+/* ===== Thread composer ===== */
+.composer{
+  display: grid;
+  gap: 12px;
+}
+
+.composerTextarea{
+  width: 100%;
+  box-sizing: border-box;
+
+  background: #000;
+  color: #fff;
+
+  border: 2px solid rgba(255,255,255,0.8);
+  border-radius: 14px;
+
+  padding: 12px 12px;
+  font-size: 14px;
+  line-height: 1.6;
+  outline: none;
+
+  resize: vertical;
+  min-height: 110px;
+}
+
+.composerTextarea:focus{
+  border-color: #fff;
+}
+
+.composerBtn{
+  width: 100%;
+  box-sizing: border-box;
+
+  background: #000;
+  color: #fff;
+
+  border: 3px solid #fff;
+  border-radius: 16px;
+
+  padding: 12px 14px;
+  font-weight: 900;
+  font-size: 14px;
+
+  cursor: pointer;
+}
+
+.composerBtn:disabled{
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.composerError{
+  border: 2px solid rgba(255,255,255,0.7);
+  border-radius: 14px;
+  padding: 10px 12px;
+  font-size: 12px;
+  color: rgba(255,255,255,0.85);
+  background: rgba(255,255,255,0.06);
+}
