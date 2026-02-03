@@ -1,35 +1,52 @@
 // src/app/sitemap.ts
+import type { MetadataRoute } from "next";
 import { prisma } from "@/lib/prisma";
 
-export default async function sitemap() {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL;
+export const dynamic = "force-dynamic"; // 変なキャッシュ事故防止
 
-  if (!baseUrl) {
-    // これが無いと、Vercelのpreview URLが混ざったりして事故る
-    throw new Error("NEXT_PUBLIC_SITE_URL is not set");
-  }
+function getBaseUrl() {
+  // 本番URLを最優先（ここが無難）
+  const prod = process.env.NEXT_PUBLIC_SITE_URL;
+  if (prod) return prod.replace(/\/$/, "");
 
+  // 次点：Vercel が用意する URL（preview等）
+  const vercel = process.env.VERCEL_URL;
+  if (vercel) return `https://${vercel}`;
+
+  // ローカル
+  return "http://localhost:3000";
+}
+
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const baseUrl = getBaseUrl();
+  const now = new Date();
+
+  // 期限内のスレだけ載せる（いらんなら where 消してOK）
   const threads = await prisma.thread.findMany({
-    where: {
-      expiresAt: { gt: new Date() }, // 消えたスレはサイトマップに載せない
-    },
+    where: { expiresAt: { gt: now } },
     select: {
       id: true,
       lastActivityAt: true,
       createdAt: true,
     },
-    orderBy: { createdAt: "desc" },
-    take: 500, // 多すぎると重いので上限（必要なら増やす）
+    orderBy: { lastActivityAt: "desc" },
+    take: 5000,
   });
 
-  return [
+  const items: MetadataRoute.Sitemap = [
     {
-      url: baseUrl,
-      lastModified: new Date(),
+      url: `${baseUrl}/`,
+      lastModified: now,
+      changeFrequency: "hourly",
+      priority: 1,
     },
     ...threads.map((t) => ({
       url: `${baseUrl}/t/${t.id}`,
       lastModified: t.lastActivityAt ?? t.createdAt,
+      changeFrequency: "hourly" as const,
+      priority: 0.7,
     })),
   ];
+
+  return items;
 }
