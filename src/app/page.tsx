@@ -2,6 +2,10 @@ import Link from "next/link";
 import { Container } from "@/components/Container";
 import { CreateThreadForm } from "@/components/CreateThreadForm";
 import { prisma } from "@/lib/prisma";
+import { unstable_noStore as noStore } from "next/cache";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 /** 残り時間表示 */
 function formatRemaining(expiresAt: Date) {
@@ -16,21 +20,33 @@ function formatRemaining(expiresAt: Date) {
 }
 
 export default async function HomePage() {
+  // ✅ 常に最新取得（キャッシュ事故防止）
+  noStore();
+
   const now = new Date();
 
-  // 期限切れ削除
-  await prisma.post.deleteMany({
-    where: { expiresAt: { lte: now } },
-  });
-  await prisma.thread.deleteMany({
-    where: { expiresAt: { lte: now } },
-  });
+  // ✅ ここで deleteMany しない（DB不調でトップが死ぬのを防ぐ）
+  // 期限切れは表示から除外するだけにする
+  let threads: Array<{
+    id: string;
+    title: string;
+    createdAt: Date;
+    expiresAt: Date;
+    _count: { posts: number };
+  }> = [];
 
-  const threads = await prisma.thread.findMany({
-    where: { expiresAt: { gt: now } },
-    orderBy: { createdAt: "desc" },
-    include: { _count: { select: { posts: true } } },
-  });
+  let dbError: string | null = null;
+
+  try {
+    threads = await prisma.thread.findMany({
+      where: { expiresAt: { gt: now } },
+      orderBy: { createdAt: "desc" },
+      include: { _count: { select: { posts: true } } },
+    });
+  } catch (e) {
+    dbError = e instanceof Error ? e.message : "DB error";
+    threads = [];
+  }
 
   return (
     <Container>
@@ -39,7 +55,7 @@ export default async function HomePage() {
         style={{
           border: "3px solid #fff",
           borderRadius: 22,
-          paddingTop: 12, // ★ 上の余白だけ詰める
+          paddingTop: 12,
           paddingRight: 20,
           paddingBottom: 18,
           paddingLeft: 20,
@@ -95,7 +111,6 @@ export default async function HomePage() {
 
         <CreateThreadForm />
 
-        {/* ===== 注意書き ===== */}
         <div
           style={{
             marginTop: 14,
@@ -109,6 +124,26 @@ export default async function HomePage() {
         </div>
       </section>
 
+      {/* ===== DBエラー表示（落とさない） ===== */}
+      {dbError && (
+        <div
+          style={{
+            border: "2px dashed rgba(255,255,255,0.4)",
+            borderRadius: 18,
+            padding: 16,
+            color: "#fff",
+            opacity: 0.85,
+            background: "#000",
+            marginBottom: 14,
+          }}
+        >
+          DBに接続できないみたい。環境変数 or Neon 側を確認してな。
+          <div style={{ marginTop: 8, fontSize: 12, opacity: 0.7 }}>
+            {dbError}
+          </div>
+        </div>
+      )}
+
       {/* ===== スレ一覧 ===== */}
       <section style={{ display: "grid", gap: 14 }}>
         {threads.length === 0 ? (
@@ -119,13 +154,14 @@ export default async function HomePage() {
               padding: 20,
               color: "#fff",
               opacity: 0.7,
+              background: "#000",
             }}
           >
             まだスレッドがない。
           </div>
         ) : (
           threads.map((t) => {
-            const posts = t._count.posts ?? 0;
+            const posts = t._count?.posts ?? 0;
 
             return (
               <Link

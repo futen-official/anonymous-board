@@ -1,4 +1,0 @@
-User-agent: *
-Allow: /
-
-Sitemap: https://anonymous-board-rho.vercel.app/sitemap.xml
